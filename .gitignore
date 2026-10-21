@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Runtime data (database, snapshots, generated audio, secrets, weights)
+backend/data/
+data/
+*.db
+*.db-wal
+*.db-shm
+.snapshot/
+initial_credentials.txt
+.secret_key
+
+# Model weights (provision locally or auto-download)
+*.pt
+*.onnx
+*.engine
+!backend/tests/fixtures/**
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+.env
+.env.local
+*.local
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+samples/*.mp4
+samples/private/
+benchmarks/
+reports/
+runs/
+datasets/
+*.tsbuildinfo

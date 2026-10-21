@@ -1,0 +1,19 @@
+[project]
+name = "smart-classroom-ai"
+version = "1.0.0"
+description = "Privacy-conscious classroom monitoring: person tracking, phone detection, phone-use alerts"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+exclude = ["frontend", ".venv", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008", "E501"]
