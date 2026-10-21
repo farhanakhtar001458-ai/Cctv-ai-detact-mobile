@@ -11,12 +11,17 @@ Exit code 0 = ready for real detections, 1 = degraded, 2 = misconfigured.
 from __future__ import annotations
 
 import importlib
+import os
 import platform
 import shutil
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+# The doctor must be fast and offline-safe: never start a weight download while
+# probing the detector. Provision weights explicitly with fetch_model.py.
+os.environ["SCAI_ALLOW_MODEL_AUTODOWNLOAD"] = "false"
 
 OK = "\033[32m[ OK ]\033[0m"
 WARN = "\033[33m[WARN]\033[0m"
@@ -68,6 +73,8 @@ def check_hardware() -> None:
 
 def check_detector() -> int:
     from app.vision.detector import detector_manager
+
+    report(OK, "model auto-download disabled for this check (use scripts/fetch_model.py)")
 
     status = detector_manager.load()
     if status.loaded and not status.degraded:

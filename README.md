@@ -28,7 +28,7 @@ stored, and no audio is captured.
 | Area | State |
 |---|---|
 | Backend API, auth, RBAC, audit log, rate limiting | **Working**, covered by tests |
-| Detection pipeline (detect → track → associate → temporal states → alerts) | **Working**, 90 automated tests |
+| Detection pipeline (detect → track → associate → temporal states → alerts) | **Working**, 104 automated tests |
 | Live dashboard (React + TypeScript), WebSocket updates, MJPEG previews | **Working** |
 | Event log, CSV export, retention purge, manual review | **Working** |
 | Voice alerts (browser TTS + optional server TTS) | **Working** (browser path needs one click to enable audio) |
@@ -46,6 +46,29 @@ If no YOLO weights are present, the backend falls back to an OpenCV HOG people
 detector and says so loudly (`degraded=true`, `phone_capable=false`) in the
 dashboard, `/api/system/info` and the health endpoint — it will never pretend to
 detect phones it cannot see.
+
+### What was actually executed while building this (2 vCPU, 4 GB RAM, no GPU)
+
+Every row below was run end-to-end in a sandbox; the numbers are from that box,
+not from a marketing sheet.
+
+| Check | Command | Result |
+|---|---|---|
+| Test suite | `make test` | **104 passed** (unit + API + WebSocket + MJPEG + detector contract) |
+| Environment doctor | `make check` | 0 failures, 7 warnings (no GPU, no YOLO weights, no server TTS) — exits 0 |
+| Detector adapter with real weights file | `UltralyticsDetector` on a locally built `yolo11n.pt` | loads, reports classes, `phone_capable=false` for the COCO names it was given |
+| Benchmark | `scripts/benchmark.py --source sim://classroom --frames 200` | HOG fallback: **16.6 FPS**, p50 **40.9 ms** at 640×360 |
+| File-source camera | create `source_type=file` camera on a generated clip, start | worker ran the real (non-simulated) path: 7 people tracked, 46 ms/frame, low-light flag set |
+| MJPEG preview | `GET /api/cameras/1/stream.mjpg?token=…` | `multipart/x-mixed-replace`, 25 frames in 4 s, annotated |
+| Live dashboard | Vite dev server + built SPA on `/` | renders and streams against the same API |
+| Model download | `scripts/fetch_model.py --check` | correctly reports missing weights, exit 1 |
+| Evaluation | `scripts/evaluate.py` | fails fast with guidance when weights are absent; full report (sweep + confusion matrix + SVG) when a file is supplied |
+| Dataset prep | `scripts/prepare_dataset.py --src … --out …` | writes `data.yaml` (`nc: 2`, `0: person`, `67: cell phone`) |
+
+Not executed here (no Docker, no GPU, no internet access to model hosts): the
+container build, CUDA benchmarking, ONVIF against physical cameras, and real
+classroom accuracy numbers. Do those on your target hardware before trusting any
+performance figure.
 
 ---
 

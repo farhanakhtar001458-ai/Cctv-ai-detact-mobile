@@ -45,8 +45,10 @@ test-frontend: ## TypeScript typecheck + production build
 lint: ## Ruff (backend) if installed
 	cd $(BACKEND) && ../$(PY) -m ruff check app scripts tests || true
 
-check: ## Environment doctor
-	$(PY) $(BACKEND)/scripts/check_env.py
+check: ## Environment doctor (warnings are not fatal)
+	@$(PY) $(BACKEND)/scripts/check_env.py; code=$$?; \
+	if [ $$code -eq 1 ]; then echo "(degraded: see warnings above; run 'make model' for phone detection)"; exit 0; fi; \
+	exit $$code
 
 model: ## Download/provision YOLO weights
 	$(PY) $(BACKEND)/scripts/fetch_model.py
