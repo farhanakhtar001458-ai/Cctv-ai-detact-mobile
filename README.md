@@ -60,7 +60,7 @@ not from a marketing sheet.
 | Benchmark | `scripts/benchmark.py --source sim://classroom --frames 200` | HOG fallback: **16.6 FPS**, p50 **40.9 ms** at 640×360 |
 | File-source camera | create `source_type=file` camera on a generated clip, start | worker ran the real (non-simulated) path: 7 people tracked, 46 ms/frame, low-light flag set |
 | MJPEG preview | `GET /api/cameras/1/stream.mjpg?token=…` | `multipart/x-mixed-replace`, 25 frames in 4 s, annotated |
-| Live dashboard | Vite dev server + built SPA on `/` | renders and streams against the same API |
+| Live dashboard | Vite dev server + built SPA on `/` | renders and streams against the same API; WebSocket proxied through Vite delivered `hello` + live `frame` messages (16 tracks) |
 | Model download | `scripts/fetch_model.py --check` | correctly reports missing weights, exit 1 |
 | Evaluation | `scripts/evaluate.py` | fails fast with guidance when weights are absent; full report (sweep + confusion matrix + SVG) when a file is supplied |
 | Dataset prep | `scripts/prepare_dataset.py --src … --out …` | writes `data.yaml` (`nc: 2`, `0: person`, `67: cell phone`) |
