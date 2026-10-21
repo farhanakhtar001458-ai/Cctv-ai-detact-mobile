@@ -1,0 +1,6 @@
+# Heavy vision stack. Install with:
+#   pip install -r requirements.txt -r requirements-vision.txt
+# For CUDA, install torch from https://pytorch.org first, then this file.
+torch>=2.2
+torchvision>=0.17
+ultralytics>=8.3

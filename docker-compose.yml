@@ -1,0 +1,50 @@
+services:
+  api:
+    build:
+      context: .
+      args:
+        # Use https://download.pytorch.org/whl/cu124 for CUDA builds
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    image: smart-classroom-ai:latest
+    container_name: scai-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      SCAI_ENVIRONMENT: ${SCAI_ENVIRONMENT:-production}
+      SCAI_DATA_DIR: /app/backend/data
+      SCAI_MODEL_PATH: /app/models/yolo11n.pt
+      SCAI_DATABASE_URL: ${SCAI_DATABASE_URL:-sqlite:////app/backend/data/classroom.db}
+      SCAI_ALLOWED_ORIGINS: ${SCAI_ALLOWED_ORIGINS:-*}
+      # Bootstrap password is only used on the very first start:
+      SCAI_BOOTSTRAP_ADMIN_PASSWORD: ${SCAI_BOOTSTRAP_ADMIN_PASSWORD:-}
+      SCAI_BOOTSTRAP_SUPERVISOR_PASSWORD: ${SCAI_BOOTSTRAP_SUPERVISOR_PASSWORD:-}
+    volumes:
+      - scai-data:/app/backend/data
+      - scai-models:/app/models
+    shm_size: "512m"
+    # For RTSP cameras on the local LAN, host networking avoids NAT issues:
+    # network_mode: host
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  scai-data:
+  scai-models:
+
+# Optional PostgreSQL for larger deployments:
+#
+#   services:
+#     db:
+#       image: postgres:16-alpine
+#       environment:
+#         POSTGRES_USER: scai
+#         POSTGRES_PASSWORD: change-me
+#         POSTGRES_DB: scai
+#       volumes: [scai-db:/var/lib/postgresql/data]
+#   # then: pip install "psycopg[binary]" in the image, and set
+#   SCAI_DATABASE_URL=postgresql+psycopg://scai:change-me@db:5432/scai
