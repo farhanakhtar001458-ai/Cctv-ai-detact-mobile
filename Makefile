@@ -7,7 +7,7 @@ FRONTEND := frontend
 PORT ?= 8000
 
 .PHONY: help setup setup-vision dev api web build test test-backend test-frontend lint \
-        check model benchmark demo-video clean docker
+        check model benchmark demo-video check-stream clean docker
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -56,6 +56,10 @@ model: ## Download/provision YOLO weights
 benchmark: ## Benchmark latency/FPS at several resolutions
 	$(PY) $(BACKEND)/scripts/benchmark.py --source sim://classroom --frames 150 \
 		--resolutions 640x360,960x540,1280x720
+
+check-stream: ## Diagnose one camera URL: make check-stream URL=rtsp://user:pass@ip:554/path
+	@test -n "$(URL)" || { echo "usage: make check-stream URL=rtsp://user:pass@192.168.1.64:554/Streaming/Channels/101"; exit 2; }
+	$(PY) $(BACKEND)/scripts/check_stream.py --url "$(URL)"
 
 demo-video: ## Render a simulated classroom video for file-mode testing
 	$(PY) $(BACKEND)/scripts/generate_demo_video.py --out samples/sim_classroom.mp4 --seconds 60

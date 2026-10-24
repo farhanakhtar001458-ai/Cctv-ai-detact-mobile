@@ -353,10 +353,36 @@ STATE_COLORS = {
 }
 
 
+def _label_clamp(x: int, text_width: int, frame_width: int) -> int:
+    """Keep a label box fully inside the frame (labels used to be cut off at the edge)."""
+    return max(0, min(x, frame_width - text_width - 8))
+
+
+def _free_label_row(
+    x: int, width: int, y_preferred: int, taken: list[tuple[int, int, int, int]], frame_height: int
+) -> int:
+    """Nudge a label upward until it no longer overlaps an already drawn label.
+
+    Dense classroom frames put several people side by side, and their labels used
+    to overprint each other, hiding the state of the person behind.
+    """
+    y = y_preferred
+    for _ in range(6):
+        clash = next(
+            (box for box in taken if not (x + width < box[0] or x > box[2] or y + 16 < box[1] or y > box[3])),
+            None,
+        )
+        if clash is None:
+            return max(0, y)
+        y = clash[1] - 18
+    return max(0, min(y_preferred, frame_height - 18))
+
+
 def annotate(frame: np.ndarray, analysis: FrameAnalysis, show_context: bool = False) -> np.ndarray:
     out = frame.copy()
     h, w = out.shape[:2]
     thickness = max(1, int(round(w / 640)))
+    drawn_labels: list[tuple[int, int, int, int]] = []
     for track in analysis.tracks:
         color = STATE_COLORS.get(track.state, (140, 140, 140))
         x1, y1, x2, y2 = (int(v) for v in track.box)
@@ -372,13 +398,15 @@ def annotate(frame: np.ndarray, analysis: FrameAnalysis, show_context: bool = Fa
         if track.state in (PhoneUseState.POSSIBLE_USE, PhoneUseState.SUSTAINED):
             text += f" {track.use_score:.0%}"
         (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
-        ty = max(0, y1 - th - 6)
-        cv2.rectangle(out, (x1, ty), (x1 + tw + 8, ty + th + 8), color, -1)
-        cv2.putText(out, text, (x1 + 4, ty + th + 1), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (10, 10, 10), 1, cv2.LINE_AA)
+        lx = _label_clamp(x1, tw, w)
+        ty = _free_label_row(lx, tw + 8, max(0, y1 - th - 6), drawn_labels, h)
+        cv2.rectangle(out, (lx, ty), (lx + tw + 8, ty + th + 8), color, -1)
+        cv2.putText(out, text, (lx + 4, ty + th + 1), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (10, 10, 10), 1, cv2.LINE_AA)
+        drawn_labels.append((lx, ty, lx + tw + 8, ty + th + 8))
         if track.phone_box is not None:
             px1, py1, px2, py2 = (int(v) for v in track.phone_box)
             cv2.rectangle(out, (px1, py1), (px2, py2), (255, 200, 0), thickness)
-            cv2.putText(out, f"PHONE {track.phone_conf:.2f}", (px1, min(h - 2, py2 + 14)),
+            cv2.putText(out, f"PHONE {track.phone_conf:.2f}", (max(0, min(px1, w - 90)), min(h - 2, py2 + 14)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 220, 60), 1, cv2.LINE_AA)
     # HUD
     hud = f"People {analysis.occupancy} | Alerts {len(analysis.alert_tracks)} | {analysis.inference_ms:.0f}ms"

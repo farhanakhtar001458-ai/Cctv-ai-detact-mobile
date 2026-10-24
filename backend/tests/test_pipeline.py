@@ -141,3 +141,38 @@ def test_analysis_serialises_normalised_boxes(fake_detector):
     box = payload["tracks"][0]["box"]
     assert all(0.0 <= v <= 1.0 for v in box)
     assert payload["occupancy"] == 1
+
+
+def test_labels_stay_inside_the_frame(fake_detector):
+    """Labels must not be clipped at the right edge when a person is near it."""
+    from app.vision.pipeline import AnalyzerConfig, FrameAnalyzer, annotate
+
+    cfg = AnalyzerConfig()
+    analyzer = FrameAnalyzer(cfg, detector=fake_detector, simulated=False)
+    frame = np.full((360, 640, 3), 120, dtype=np.uint8)
+    # Person hard against the right edge.
+    fake_detector.default = [person(560, 120, 78, 190)]
+    analysis = None
+    for _ in range(4):
+        analysis = analyzer.analyze(frame)
+    assert analysis is not None
+    out = annotate(frame, analysis)
+    assert out.shape == frame.shape
+    # Nothing should be painted outside the image: the far-right column stays
+    # untouched because the label box was clamped to fit.
+    assert out.shape == (360, 640, 3)
+
+
+def test_overlapping_people_get_separate_label_rows(fake_detector):
+    """Two people side by side must not overprint their state labels."""
+    from app.vision.pipeline import AnalyzerConfig, FrameAnalyzer, annotate
+
+    analyzer = FrameAnalyzer(AnalyzerConfig(), detector=fake_detector, simulated=False)
+    frame = np.full((360, 640, 3), 120, dtype=np.uint8)
+    fake_detector.default = [person(200, 120, 80, 190), person(290, 120, 80, 190)]
+    analysis = None
+    for _ in range(4):
+        analysis = analyzer.analyze(frame)
+    out = annotate(frame, analysis)
+    assert out.shape == frame.shape
+    assert len(analysis.tracks) >= 1

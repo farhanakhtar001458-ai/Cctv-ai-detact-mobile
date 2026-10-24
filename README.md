@@ -28,7 +28,7 @@ stored, and no audio is captured.
 | Area | State |
 |---|---|
 | Backend API, auth, RBAC, audit log, rate limiting | **Working**, covered by tests |
-| Detection pipeline (detect → track → associate → temporal states → alerts) | **Working**, 104 automated tests |
+| Detection pipeline (detect → track → associate → temporal states → alerts) | **Working**, 125 automated tests |
 | Live dashboard (React + TypeScript), WebSocket updates, MJPEG previews | **Working** |
 | Event log, CSV export, retention purge, manual review | **Working** |
 | Voice alerts (browser TTS + optional server TTS) | **Working** (browser path needs one click to enable audio) |
@@ -54,7 +54,7 @@ not from a marketing sheet.
 
 | Check | Command | Result |
 |---|---|---|
-| Test suite | `make test` | **104 passed** (unit + API + WebSocket + MJPEG + detector contract) |
+| Test suite | `make test` | **125 passed** (unit + API + WebSocket + MJPEG + detector contract) |
 | Environment doctor | `make check` | 0 failures, 7 warnings (no GPU, no YOLO weights, no server TTS) — exits 0 |
 | Detector adapter with real weights file | `UltralyticsDetector` on a locally built `yolo11n.pt` | loads, reports classes, `phone_capable=false` for the COCO names it was given |
 | Benchmark | `scripts/benchmark.py --source sim://classroom --frames 200` | HOG fallback: **16.6 FPS**, p50 **40.9 ms** at 640×360 |
@@ -348,9 +348,10 @@ curl -s "localhost:8000/api/events?category=sustained_phone_use&days=1" -H "Auth
 ```bash
 cd backend
 pip install pytest httpx pytest-asyncio
-pytest -q                     # 104 tests: geometry, tracker, association, temporal,
+pytest -q                     # 125 tests: geometry, tracker, association, temporal,
                               # pipeline, API/auth/RBAC, credentials, events, metrics,
-                              # websocket + MJPEG preview, detector backends, evaluation
+                              # websocket + MJPEG preview, detector backends, evaluation,
+                              # stream diagnostics (check_stream.py)
 cd ../frontend
 npm run typecheck && npm run build
 ```
@@ -459,7 +460,7 @@ backend/
     vision/       detector, tracker, association, temporal, pipeline, sources, geometry, evaluation
   scripts/        fetch_model, check_env, benchmark, prepare_dataset, train, evaluate,
                   export_onnx, generate_demo_video
-  tests/          104 unit/integration tests
+  tests/          125 unit/integration tests
 frontend/
   src/            pages (monitor, events, cameras, reports, settings, audit, login),
                   components, lib (api, auth, ws, voice, types)
@@ -476,7 +477,9 @@ docker-compose.yml, Makefile, samples/
 |---|---|
 | Amber banner "Degraded detector: … no mobile-phone detection" | No YOLO weights. `python scripts/fetch_model.py`, then **Settings → Reload**. |
 | `yolo11n.pt` is 132 bytes | You copied a Git LFS pointer. Use `fetch_model.py --check` and fetch the real file. |
-| Preview stays black / "Waiting for first frame" | Wrong RTSP URL/path, camera busy, or codec unsupported. Use *Test connection*; try the substream URL. |
+| Preview stays black / "Waiting for first frame" | Wrong RTSP URL/path, camera busy, or codec unsupported. Run `make check-stream URL=rtsp://…` (see below); try the substream URL. |
+| Camera "can't connect" but the mini-PC is fine | A cloud/Codespace backend cannot reach a LAN camera (`192.168.x.x`, `10.x.x.x`). Run the backend on the same network, or use a VPN (Tailscale). |
+| `Connection reset by peer` from a camera URL | Something answers TCP but drops the HTTP/RTSP request: wrong port, HTTPS-only port, a proxy/firewall, or a web UI that needs the stream path (often `/video`). `check_stream.py` names the stage that failed. |
 | `libGL.so.1` errors | Use `opencv-python-headless` (already in requirements), not `opencv-python`. |
 | No sound | Browsers need a click: press **Enable audio**. Server output needs `espeak-ng`. |
 | Many "possible use" but few alerts | Normal. Raise sensitivity only after checking real footage; lower `persistence_threshold` in small steps. |
@@ -484,6 +487,23 @@ docker-compose.yml, Makefile, samples/
 | Alerts every few seconds from one student | Cooldown too low; keep ≥ 60 s. Duplicate-suppressed entries are logged, not announced. |
 | High CPU, low FPS | Raise `frame_sample`, lower inference resolution, run fewer cameras per host, or use a GPU/ONNX. Check `scripts/benchmark.py`. |
 | Login returns 429 | Rate limit (10/min). Wait a minute; disable with `SCAI_RATE_LIMIT_ENABLED=false` for local dev. |
+
+### "My camera won't connect" — one command that tells you why
+
+```bash
+# from the repo root; URL may contain the camera password (it is redacted in output)
+make check-stream URL='rtsp://admin:secret@192.168.1.64:554/Streaming/Channels/101'
+
+# or directly, with more control
+.venv/bin/python backend/scripts/check_stream.py --url http://192.168.1.55:8080/video --frames 30
+.venv/bin/python backend/scripts/check_stream.py --url /media/clips/lesson.mp4
+.venv/bin/python backend/scripts/check_stream.py --url http://10.0.0.9:8080/ --json
+```
+
+It runs four stages and stops at the first failure: **DNS/TCP reachability →
+HTTP or RTSP handshake (incl. 401 auth) → frame decoding → resolution/FPS/light**.
+Exit codes: `0` usable, `2` unreachable, `3` reachable but no video, `4` auth
+required. Credentials are redacted everywhere, including in errors and JSON.
 
 ---
 

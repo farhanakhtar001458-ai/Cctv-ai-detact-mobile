@@ -344,11 +344,12 @@ class SimulatedSource(FrameSource):
     def _render(self) -> np.ndarray:
         w, h = self.width, self.height
         frame = np.zeros((h, w, 3), dtype=np.uint8)
-        # Floor + wall gradient (dark classroom look).
+        # Lit classroom look: bright enough (mean ~0.38) that the demo does not
+        # trip the low-light warning, which is reserved for genuinely dark feeds.
         for y in range(h):
             blend = y / max(1, h - 1)
-            frame[y, :, :] = (int(38 + 18 * blend), int(42 + 20 * blend), int(50 + 22 * blend))
-        cv2.rectangle(frame, (30, 30), (w - 30, 96), (58, 62, 72), -1)
+            frame[y, :, :] = (int(96 - 26 * blend), int(100 - 26 * blend), int(110 - 26 * blend))
+        cv2.rectangle(frame, (30, 30), (w - 30, 96), (78, 84, 98), -1)
         cv2.putText(frame, "SIMULATED CLASSROOM FEED - NOT REAL CCTV", (46, 74),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.62, (170, 210, 255), 1, cv2.LINE_AA)
         for s in self.scene.students:
@@ -356,24 +357,25 @@ class SimulatedSource(FrameSource):
                 continue
             # desk
             cv2.rectangle(frame, (int(s.x - 18), int(s.y + s.h * 0.6)),
-                          (int(s.x + s.w + 18), int(s.y + s.h * 0.88)), (72, 58, 44), -1)
+                          (int(s.x + s.w + 18), int(s.y + s.h * 0.88)), (104, 84, 62), -1)
             # torso
             cv2.rectangle(frame, (int(s.x), int(s.y + s.h * 0.28)),
                           (int(s.x + s.w), int(s.y + s.h)), s.tint, -1)
             # head
             cv2.circle(frame, (int(s.x + s.w / 2), int(s.y + s.h * 0.16)),
-                       int(s.w * 0.30), (150, 168, 190), -1)
+                       int(s.w * 0.30), (168, 186, 206), -1)
             # arms
             cv2.line(frame, (int(s.x + 4), int(s.y + s.h * 0.38)),
-                     (int(s.x + s.w * 0.38), int(s.y + s.h * 0.66)), (120, 138, 160), 6)
+                     (int(s.x + s.w * 0.38), int(s.y + s.h * 0.66)), (132, 150, 172), 6)
             cv2.line(frame, (int(s.x + s.w - 4), int(s.y + s.h * 0.38)),
-                     (int(s.x + s.w * 0.62), int(s.y + s.h * 0.66)), (120, 138, 160), 6)
+                     (int(s.x + s.w * 0.62), int(s.y + s.h * 0.66)), (132, 150, 172), 6)
             if s.has_phone and s.phone_progress > 0.15:
                 px, py = self.scene.phone_box(s)
                 cv2.rectangle(frame, (int(px), int(py)), (int(px + 16), int(py + 26)), (30, 200, 240), -1)
         noise = np.random.default_rng(self.scene.frame_index).normal(0, 4, frame.shape)
         frame = np.clip(frame.astype(np.float32) + noise, 0, 255).astype(np.uint8)
-        # Vignette-ish lighting variation to exercise low-light handling.
+        # Brief dim window so the low-light path stays exercised (~1 in 9 frames
+        # at 12 fps, i.e. a few seconds every ~90 s).
         if self.scene.frame_index % 900 > 800:
             frame = (frame * 0.45).astype(np.uint8)
         return frame
